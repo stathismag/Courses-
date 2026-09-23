@@ -1,0 +1,85 @@
+name: Temporary OEWS 2002-2018 downloader
+
+on:
+  push:
+    paths:
+      - ".github/workflows/oews-temp.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download official BLS OES archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p oews_archives
+          cat > oews_archives/SOURCE_MANIFEST.txt <<'EOF'
+          Source: U.S. Bureau of Labor Statistics OES/OEWS historical special requests
+          Base URL: https://www.bls.gov/oes/special-requests/
+          Coverage: 2002-2018
+          Files:
+          2002 oes02in4.zip
+          2003 oesm03in4.zip
+          2004 oesm04in4.zip
+          2005 oesm05in4.zip
+          2006 oesm06in4.zip
+          2007 oesm07in4.zip
+          2008 oesm08in4.zip
+          2009 oesm09in4.zip
+          2010 oesm10in4.zip
+          2011 oesm11in4.zip
+          2012 oesm12in4.zip
+          2013 oesm13in4.zip
+          2014 oesm14in4.zip
+          2015 oesm15in4.zip
+          2016 oesm16in4.zip
+          2017 oesm17in4.zip
+          2018 oesm18in4.zip
+          EOF
+
+          files=(
+            oes02in4.zip
+            oesm03in4.zip
+            oesm04in4.zip
+            oesm05in4.zip
+            oesm06in4.zip
+            oesm07in4.zip
+            oesm08in4.zip
+            oesm09in4.zip
+            oesm10in4.zip
+            oesm11in4.zip
+            oesm12in4.zip
+            oesm13in4.zip
+            oesm14in4.zip
+            oesm15in4.zip
+            oesm16in4.zip
+            oesm17in4.zip
+            oesm18in4.zip
+          )
+
+          for f in "${files[@]}"; do
+            echo "Downloading $f"
+            curl --fail --location --show-error --silent               --retry 5 --retry-all-errors --connect-timeout 30 --max-time 900               -A "Mozilla/5.0 (compatible; academic-research-download/1.0)"               "https://www.bls.gov/oes/special-requests/$f"               -o "oews_archives/$f"
+            test -s "oews_archives/$f"
+            unzip -tq "oews_archives/$f"
+          done
+
+          cd oews_archives
+          sha256sum *.zip | sort > SHA256SUMS.txt
+          printf "archive_count=%s\n" "$(find . -maxdepth 1 -name '*.zip' | wc -l)" > VALIDATION.txt
+          printf "all_zip_integrity=PASS\n" >> VALIDATION.txt
+          cat VALIDATION.txt
+          cat SHA256SUMS.txt
+
+      - name: Upload OEWS bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: OEWS_2002_2018_BLS_archives
+          path: oews_archives/
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 1
