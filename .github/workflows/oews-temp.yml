@@ -1,4 +1,4 @@
-name: Temporary OEWS 2002-2018 resolver
+name: Temporary OEWS 2002-2018 downloader
 
 on:
   push:
@@ -9,23 +9,35 @@ permissions:
   contents: read
 
 jobs:
-  resolve:
+  download:
     runs-on: ubuntu-latest
     steps:
-      - name: Inspect openICPSR preserved OEWS archive
+      - name: Download preserved OEWS raw folder from openICPSR
         shell: bash
         run: |
           set -euo pipefail
-          url='https://www.openicpsr.org/openicpsr/project/198751/version/V1/view?path=%2Fopenicpsr%2F198751%2Ffcr%3Aversions%2FV1%2F04_OEWS%2Fdata%2Finputs%2Fraw&type=folder'
-          curl -L --fail --show-error -A 'Mozilla/5.0' "$url" -o page.html
-          echo '--- candidate download/file links ---'
-          grep -Eo 'href="[^"]+"' page.html | sed 's/^href="//;s/"$//' | grep -Ei 'download|nat4d|198751|file' | head -200 || true
-          echo '--- filename context ---'
-          grep -n -E 'nat4d_2002_dl|nat4d_may2003|nat4d_M2018' page.html | head -50 || true
-      - name: Upload resolver page
+          mkdir -p out
+          base='https://www.openicpsr.org/openicpsr'
+          dir='/openicpsr/198751/fcr:versions/V1/04_OEWS/data/inputs/raw'
+          ua='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120 Safari/537.36'
+          curl -L --fail --show-error -A "$ua" -c cookies.txt "$base/" -o /dev/null
+          curl -L --fail --show-error -A "$ua" -b cookies.txt -c cookies.txt             "$base/project/198751/version/V1/download/project?dirPath=$(python3 - <<'PY'
+import urllib.parse
+print(urllib.parse.quote('/openicpsr/198751/fcr:versions/V1/04_OEWS/data/inputs/raw', safe=''))
+PY
+)" -o out/openICPSR_198751_OEWS_raw.zip
+          test -s out/openICPSR_198751_OEWS_raw.zip
+          unzip -tq out/openICPSR_198751_OEWS_raw.zip
+          unzip -l out/openICPSR_198751_OEWS_raw.zip | tee out/CONTENTS.txt
+          count=$(unzip -Z1 out/openICPSR_198751_OEWS_raw.zip | grep -E 'nat4d_.*\.(xls|xlsx)$' | wc -l)
+          echo "nat4d_workbook_count=$count" | tee out/VALIDATION.txt
+          test "$count" -eq 19
+          sha256sum out/openICPSR_198751_OEWS_raw.zip > out/SHA256SUMS.txt
+      - name: Upload OEWS preserved bundle
         uses: actions/upload-artifact@v4
         with:
-          name: openICPSR_resolver_page
-          path: page.html
+          name: OEWS_2002_2018_openICPSR_preserved
+          path: out/
+          compression-level: 0
           if-no-files-found: error
           retention-days: 1
