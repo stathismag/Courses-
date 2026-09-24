@@ -1,0 +1,30 @@
+name: Temporary Stage24 AIOE vendor
+on:
+  push:
+    paths:
+      - ".github/workflows/stage24-aioe-temp.yml"
+permissions:
+  contents: read
+jobs:
+  vendor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch published AIOE workbook
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p vendor
+          curl -L --fail --show-error --retry 5             https://raw.githubusercontent.com/AIOE-Data/AIOE/main/AIOE_DataAppendix.xlsx             -o vendor/AIOE_DataAppendix.xlsx
+          test -s vendor/AIOE_DataAppendix.xlsx
+          sha256sum vendor/AIOE_DataAppendix.xlsx > vendor/SHA256SUMS.txt
+          printf "source_repo=https://github.com/AIOE-Data/AIOE\n" > vendor/PROVENANCE.txt
+          printf "source_file=AIOE_DataAppendix.xlsx\n" >> vendor/PROVENANCE.txt
+          printf "paper=Felten Raj Seamans 2021 Strategic Management Journal\n" >> vendor/PROVENANCE.txt
+      - name: Upload public AIOE data
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage24-aioe-public-data
+          path: vendor/
+          compression-level: 6
+          if-no-files-found: error
+          retention-days: 1
